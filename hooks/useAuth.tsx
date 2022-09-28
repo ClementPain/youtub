@@ -58,7 +58,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setUser(userCredential.user)
         router.push('./')
       })
-      .catch((error) => alert("error.message"))
+      .catch((error) => alert(error.message))
       .finally(() => setLoading(false))
   }
 
