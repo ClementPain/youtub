@@ -9,8 +9,14 @@ import Modal from '../components/Modal'
 import useAuth from '../hooks/useAuth'
 import { Movie } from '../typings'
 import requests from '../utils/requests'
+import Plans from '../components/Plans'
+import { getProducts, Product } from '@stripe/firestore-stripe-payments'
+import payments from '../lib/stripe'
+import useSubscription from '../hooks/useSubscription'
+import useList from '../hooks/useList'
 
 interface Props {
+  products: Product[]
   netflixOriginals: Movie[]
   trendingNow: Movie[]
   topRated: Movie[]
@@ -22,6 +28,7 @@ interface Props {
 }
 
 const Home = ({
+  products,
   netflixOriginals,
   actionMovies,
   comedyMovies,
@@ -31,11 +38,14 @@ const Home = ({
   topRated,
   trendingNow
 }: Props) => {
-  const { logout, loading } = useAuth()
+  const { user, loading } = useAuth()
   const showModal = useRecoilValue(modalState)
-  const movie = useRecoilValue(movieState)
+  const subscription = useSubscription(user)
+  const myMoviesList = useList(user?.uid)
 
-  if (loading) return null
+  if (loading || subscription === null) return null
+
+  if (!subscription) return <Plans products={ products } />
 
   return (
     <div className=
@@ -53,10 +63,15 @@ const Home = ({
       <main className='relative pl-4 pb-24 lg:space-y-24 lg:pl-16'>
         <Banner netflixOriginals={netflixOriginals} />
         <section className='md:space-y-24'>
-        <Row title="Trending Now" movies={trendingNow} />
+          <Row title="Trending Now" movies={trendingNow} />
           <Row title="Top Rated" movies={topRated} />
           <Row title="Action Thrillers" movies={actionMovies} />
           <Row title="Comedies" movies={comedyMovies} />
+
+          { myMoviesList.length > 0 &&
+            <Row title="My list" movies={ myMoviesList } />
+          }
+
           <Row title="Scary Movies" movies={horrorMovies} />
           <Row title="Romance Movies" movies={romanceMovies} />
           <Row title="Documentaries" movies={documentaries} />
@@ -70,6 +85,13 @@ const Home = ({
 export default Home
 
 export const getServerSideProps = async () => {
+  const products = await getProducts(payments, {
+    includePrices: true,
+    activeOnly: true,
+  })
+    .then((res) => res)
+    .catch((error) => console.log(error.message))
+  
   const [
     netflixOriginals,
     trendingNow,
@@ -92,6 +114,7 @@ export const getServerSideProps = async () => {
 
   return {
     props: {
+      products,
       netflixOriginals: netflixOriginals.results,
       trendingNow: trendingNow.results,
       topRated: topRated.results,
